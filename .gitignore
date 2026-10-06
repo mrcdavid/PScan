@@ -1,0 +1,66 @@
+# =====================================================================
+# PScan .gitignore
+# Commit: source code, tests, scripts, config.toml, icons, README.
+# Never commit: your scans, private keys, paired-phone tokens, or
+# anything that is generated/downloaded and can be rebuilt.
+# =====================================================================
+
+# --- Your data (private) ---------------------------------------------
+# Finished PDFs
+Scans/
+*.pdf
+# PC server runtime data: paired-phone tokens (devices.json), server id,
+# scans in progress, logs
+pc/data/
+
+# --- Secrets (never commit, back them up separately) ------------------
+# PScan's release signing key and its password
+phone/signing/
+phone/signing-previous/
+*.jks
+*.keystore
+*.p12
+keystore-password.txt
+.env
+.env.*
+
+# --- Python ------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- BeeWare / Android build output ------------------------------------
+# Generated Gradle project, build environment, logs
+phone/build/
+phone/.briefcase/
+phone/logs/
+# Built apps: share these as GitHub Releases, not in the repository
+phone/dist/
+*.apk
+*.aab
+*.idsig
+# Android tools (normally outside the project, in C:\Users\Marc\dev\.briefcase)
+.briefcase/
+.gradle/
+local.properties
+
+# --- Logs and temporary files ------------------------------------------
+*.log
+*.tmp
+*.partial
+
+# --- Editors and OS ----------------------------------------------------
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

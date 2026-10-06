@@ -1,0 +1,49 @@
+# BeeWare Briefcase project for the PScan Android app.
+# Build helpers: see phone\briefcase.ps1 (sets BRIEFCASE_HOME so the Android tools live in C:\Users\Marc\dev\.briefcase)
+[tool.briefcase]
+project_name = "PScan"
+bundle = "com.marcdavid"
+version = "0.2.1"
+url = "https://github.com/mrcdavid/PScan"
+license = "MIT"
+license-files = ["LICENSE"]
+author = "Marc Allen David"
+# No author_email on purpose: this repo is public and Briefcase would also copy it into the app's metadata.
+
+[tool.briefcase.app.pscan]
+formal_name = "PScan"
+description = "Scan documents with your phone camera and save them as PDFs on your PC"
+long_description = """Take photos of document pages; your PC straightens, cleans and OCRs them
+and saves a searchable PDF automatically.
+"""
+icon = "icons/pscan"
+sources = [
+    "src/pscan",
+]
+test_sources = [
+    "tests",
+]
+
+requires = [
+]
+test_requires = [
+    "pytest",
+]
+
+permission.camera = "PScan uses the camera to photograph the pages of your documents."
+
+[tool.briefcase.app.pscan.windows]
+requires = [
+    "toga-winforms~=0.5.7",
+]
+
+[tool.briefcase.app.pscan.android]
+requires = [
+    "toga-android~=0.5.7",
+]
+
+base_theme = "Theme.MaterialComponents.Light.DarkActionBar"
+
+build_gradle_dependencies = [
+    "com.google.android.material:material:1.13.0",
+]

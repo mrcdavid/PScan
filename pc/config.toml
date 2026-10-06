@@ -1,0 +1,29 @@
+# PScan PC server settings. Restart PScan (tray icon -> Quit, then start it again) after editing.
+
+# Name the phone shows for this PC. Empty = the Windows computer name.
+server_name = ""
+
+# HTTP port the phone uploads to, and UDP port used to find this PC automatically.
+port = 8765
+discovery_port = 8766
+
+# Where finished PDFs are saved. Relative paths are relative to this file's folder.
+output_dir = "../Scans"
+
+# Default look of scanned pages: "color", "gray" or "bw" (black & white text).
+default_mode = "color"
+
+# Default PDF page size: "A4", "Letter", "Long" (8.5 x 13 in), "Legal" or "Original"
+# (keep each page's own shape). The phone app can pick another size per scan.
+paper = "A4"
+
+# Searchable PDFs (needs Tesseract OCR installed).
+ocr = true
+# Tesseract languages, e.g. "eng" or "eng+fil" (install the extra language data first).
+ocr_lang = "eng"
+# Full path to tesseract.exe. Empty = find it automatically.
+tesseract_path = ""
+
+# Pages are limited to this many pixels on the long side (3000 ~ 300 DPI on A4/Letter).
+max_long_edge = 3000
+jpeg_quality = 85

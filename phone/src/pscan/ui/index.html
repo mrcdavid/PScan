@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#8d1436">
+  <title>PScan</title>
+  <link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+  <!-- ============================== header ============================== -->
+  <header class="appbar">
+    <div class="top-row">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><path d="M15 9h13l8 8v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z" fill="#8d1436"/><path d="M28 9v8h8" fill="#5e0d24"/><path d="M18 24h12M18 29h12M18 34h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="35" r="7" fill="#FFB61C" stroke="#fff" stroke-width="2"/><circle cx="34" cy="35" r="2.6" fill="#00563F"/></svg>
+        </div>
+        <div class="brand-text">
+          <h1>PScan</h1>
+          <p>Marc's Document Scanner</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn glass" id="btn-pc" data-icon="laptop" aria-label="Your PC" hidden></button>
+        <button class="icon-btn glass" id="btn-about" data-icon="info" aria-label="About PScan"></button>
+      </div>
+    </div>
+    <div class="status-pill" id="status">
+      <span class="dot" id="status-dot"></span>
+      <span class="spinner small" id="status-spin" hidden></span>
+      <span class="status-text" id="status-text">Starting…</span>
+    </div>
+  </header>
+  <div class="accent"><div class="progress" id="progress" hidden></div></div>
+
+  <!-- ============================ connect screen ========================== -->
+  <main class="screen" id="screen-connect" hidden>
+    <section class="hero card">
+      <div class="hero-art" id="hero-art">
+        <svg viewBox="0 0 220 120" aria-hidden="true">
+          <g class="waves" fill="none" stroke="#FFB61C" stroke-width="4" stroke-linecap="round">
+            <path d="M96 46a20 20 0 0 1 28 0"/><path d="M88 37a32 32 0 0 1 44 0"/><path d="M80 28a44 44 0 0 1 60 0"/>
+          </g>
+          <rect x="20" y="56" width="74" height="46" rx="6" fill="#8d1436"/>
+          <rect x="26" y="62" width="62" height="34" rx="3" fill="#fff"/>
+          <path d="M34 72h30M34 79h40M34 86h22" stroke="#e7cfd7" stroke-width="3" stroke-linecap="round"/>
+          <path d="M12 104h90a2 2 0 0 1-2 4H14a2 2 0 0 1-2-4z" fill="#6c0f29"/>
+          <rect x="150" y="44" width="40" height="66" rx="8" fill="#00563F"/>
+          <rect x="155" y="51" width="30" height="50" rx="3" fill="#fff"/>
+          <path d="M162 60h10l5 5v26h-15z" fill="#f8e9ee"/><circle cx="178" cy="88" r="5" fill="#FFB61C"/>
+        </svg>
+      </div>
+      <h2>Connect to your PC</h2>
+      <p class="muted">Open <b>PScan</b> on your PC (its icon sits next to the clock) and keep this phone on the same Wi‑Fi.</p>
+    </section>
+
+    <div class="section-head">
+      <span>PCs on this network</span>
+      <button class="text-btn" id="btn-search"><span class="spinner tiny" id="search-spin" hidden></span><span data-icon="refresh"></span>Search</button>
+    </div>
+    <div class="list" id="found-list"></div>
+    <p class="hint error" id="search-message" hidden></p>
+
+    <div class="section-head"><span>Or type the PC's address</span></div>
+    <form class="field-row" id="manual-form" autocomplete="off">
+      <input class="field" id="manual-ip" placeholder="e.g. 192.168.1.5" inputmode="decimal" enterkeyhint="go">
+      <button class="btn btn-primary btn-compact" type="submit" id="btn-manual">Connect</button>
+    </form>
+    <p class="hint">Find it in the PScan tray menu on the PC.</p>
+  </main>
+
+  <!-- ============================== pair screen =========================== -->
+  <main class="screen" id="screen-pair" hidden>
+    <section class="card pair-card">
+      <div class="round-icon gold" data-icon="shield"></div>
+      <h2 id="pair-title">Pair with your PC</h2>
+      <p class="muted" id="pair-help"></p>
+      <form id="pair-form" autocomplete="off">
+        <input class="field code" id="pair-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autocomplete="one-time-code" enterkeyhint="done">
+        <p class="hint error" id="pair-error" hidden></p>
+        <button class="btn btn-primary btn-block" type="submit" id="btn-pair"><span class="spinner small" id="pair-spin" hidden></span><span>Pair this phone</span></button>
+      </form>
+      <div class="row-2">
+        <button class="btn btn-outline" id="btn-resend" data-icon="refresh">New code</button>
+        <button class="btn btn-ghost" id="btn-pair-back" data-icon="chevron-left">Back</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================== scan screen =========================== -->
+  <main class="screen" id="screen-scan" hidden>
+    <div class="toolbar" id="toolbar">
+      <div class="count" id="count"></div>
+      <button class="text-btn danger" id="btn-clear" data-icon="trash">Clear</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <section class="empty" id="empty">
+      <svg viewBox="0 0 160 120" aria-hidden="true">
+        <rect x="38" y="14" width="62" height="86" rx="6" fill="#f8e9ee" transform="rotate(-8 69 57)"/>
+        <rect x="52" y="10" width="62" height="86" rx="6" fill="#fff" stroke="#ead7de" stroke-width="2"/>
+        <path d="M62 30h34M62 40h42M62 50h28M62 60h38" stroke="#e7cfd7" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="112" cy="86" r="22" fill="#8d1436"/><rect x="100" y="79" width="24" height="17" rx="3" fill="none" stroke="#fff" stroke-width="3"/><circle cx="112" cy="87.5" r="4.5" fill="none" stroke="#FFB61C" stroke-width="3"/>
+      </svg>
+      <h3>No pages yet</h3>
+      <p class="muted">Tap <b>Add page</b> and photograph the first page.<br>Each page is sent to the PC right away.</p>
+    </section>
+  </main>
+
+  <!-- ============================== bottom bar ============================ -->
+  <footer class="bottombar" id="bottombar" hidden>
+    <div class="chips">
+      <button class="chip" id="chip-paper" data-icon="page"><span id="chip-paper-text">A4</span></button>
+      <button class="chip" id="chip-mode" data-icon="contrast"><span id="chip-mode-text">Color</span></button>
+      <button class="chip" id="chip-ocr" data-icon="search"><span>Searchable</span></button>
+    </div>
+    <div class="cta">
+      <button class="btn btn-gold" id="btn-add" data-icon="camera">Add page</button>
+      <button class="btn btn-primary" id="btn-save" data-icon="send">Save PDF</button>
+    </div>
+  </footer>
+
+  <!-- ================================ sheets ============================== -->
+  <div class="backdrop" id="backdrop"></div>
+
+  <section class="sheet" id="sheet-page" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <div class="sheet-head"><h3 id="page-title">Page</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+    <div class="page-preview" id="page-preview"><img id="page-preview-img" alt=""><div class="overlay" id="page-preview-overlay" hidden><span class="spinner"></span></div></div>
+    <p class="hint center" id="page-note"></p>
+    <div class="action-grid">
+      <button class="action" id="pa-rotate" data-icon="rotate"><span>Rotate</span></button>
+      <button class="action" id="pa-left" data-icon="chevron-left"><span>Move left</span></button>
+      <button class="action" id="pa-right" data-icon="chevron-right"><span>Move right</span></button>
+      <button class="action" id="pa-retake" data-icon="camera"><span>Retake</span></button>
+      <button class="action" id="pa-crop" data-icon="crop"><span id="pa-crop-text">Crop</span></button>
+      <button class="action danger" id="pa-delete" data-icon="trash"><span>Delete</span></button>
+    </div>
+  </section>
+
+  <section class="sheet" id="sheet-paper" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <div class="sheet-head"><h3>Paper size</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+    <p class="hint">Every page of the PDF gets this size. Pages that don't match are centred on white.</p>
+    <div class="options" id="paper-options"></div>
+  </section>
+
+  <section class="sheet" id="sheet-mode" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <div class="sheet-head"><h3>Page style</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+    <div class="options" id="mode-options"></div>
+  </section>
+
+  <section class="sheet" id="sheet-save" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <div id="save-form">
+      <div class="sheet-head"><h3 id="save-title">Save PDF</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+      <div class="summary" id="save-summary"></div>
+      <label class="label" for="save-name">File name <span class="muted">(optional)</span></label>
+      <input class="field" id="save-name" placeholder="Scan_2026-10-06" enterkeyhint="send" autocomplete="off">
+      <button class="btn btn-primary btn-block" id="btn-save-go" data-icon="send">Save PDF to PC</button>
+    </div>
+    <div class="save-state" id="save-progress" hidden>
+      <div class="ring"><span class="spinner big"></span></div>
+      <h3>Saving on <span id="save-server"></span>…</h3>
+      <p class="muted" id="save-progress-text">Straightening and cleaning the pages.</p>
+    </div>
+    <div class="save-state" id="save-done" hidden>
+      <div class="round-icon success" data-icon="check"></div>
+      <h3>Saved!</h3>
+      <p class="filename" id="save-filename"></p>
+      <p class="muted" id="save-where"></p>
+      <p class="hint error" id="save-note" hidden></p>
+      <button class="btn btn-primary btn-block" id="btn-save-done">Done</button>
+    </div>
+    <div class="save-state" id="save-error" hidden>
+      <div class="round-icon danger" data-icon="alert"></div>
+      <h3>Not saved</h3>
+      <p class="muted" id="save-error-text"></p>
+      <div class="row-2">
+        <button class="btn btn-outline" id="btn-save-close">Close</button>
+        <button class="btn btn-primary" id="btn-save-retry" data-icon="refresh">Try again</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet" id="sheet-pc" role="dialog" aria-modal="true">
+    <div class="handle"></div>
+    <div class="sheet-head"><h3>Your PC</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+    <div class="pc-card">
+      <div class="round-icon" data-icon="laptop"></div>
+      <div><b id="pc-name"></b><small id="pc-host"></small><span class="pc-state" id="pc-state"></span></div>
+    </div>
+    <p class="hint">Finished PDFs are saved in the Scans folder on this PC.</p>
+    <button class="btn btn-outline btn-block danger-outline" id="btn-disconnect" data-icon="logout">Disconnect this phone</button>
+  </section>
+
+  <!-- ================================ modals ============================== -->
+  <section class="modal" id="modal-about" role="dialog" aria-modal="true" aria-labelledby="about-title">
+    <div class="modal-hero">
+      <button class="icon-btn glass close" data-close data-icon="x" aria-label="Close"></button>
+      <div class="logo big" aria-hidden="true"></div>
+      <h2 id="about-title">PScan</h2>
+      <p>Phone-to-PC document scanner · v<span id="about-version"></span></p>
+      <span class="gold-badge" data-icon="shield">For Marc's use only</span>
+    </div>
+    <div class="modal-body">
+      <h4>Why we built PScan</h4>
+      <p>PScan was made for <b>Marc</b> so that documents no longer have to go through a printer scanner. Photograph each page with this phone and PScan sends it over the Wi‑Fi <b>straight to Marc's PC</b>. There the pages are straightened, cleaned up, made searchable and saved together as one <b>A4 PDF</b>, ready in the Scans folder.</p>
+      <h4>How it works</h4>
+      <ol class="steps">
+        <li><span data-icon="camera"></span><div><b>Snap</b> each page with the phone camera.</div></li>
+        <li><span data-icon="wifi"></span><div><b>Send</b> it privately over the local Wi‑Fi to the paired PC.</div></li>
+        <li><span data-icon="file"></span><div><b>Save</b>: the PC builds a searchable PDF automatically.</div></li>
+      </ol>
+      <h4>Powered by</h4>
+      <div class="tech">
+        <p class="tech-group">Phone app</p>
+        <div class="tags"><span>Python</span><span>BeeWare Toga</span><span>Briefcase</span><span>Chaquopy</span><span>Android WebView</span><span>HTML/CSS/JS</span></div>
+        <p class="tech-group">PC server</p>
+        <div class="tags"><span>Python</span><span>FastAPI</span><span>Uvicorn</span><span>OpenCV</span><span>NumPy</span><span>Pillow</span><span>Tesseract OCR</span><span>pypdf</span><span>img2pdf</span><span>pystray</span></div>
+        <p class="tech-group">Connection</p>
+        <div class="tags"><span>Local Wi-Fi (HTTP)</span><span>UDP auto-discovery</span><span>One-time pairing code</span></div>
+      </div>
+    </div>
+    <footer class="modal-footer">© <span id="about-year"></span> PScan · Made for Marc</footer>
+  </section>
+
+  <section class="modal small" id="modal-confirm" role="alertdialog" aria-modal="true">
+    <div class="modal-body center">
+      <div class="round-icon danger" data-icon="alert"></div>
+      <h3 id="confirm-title"></h3>
+      <p class="muted" id="confirm-text"></p>
+      <div class="row-2">
+        <button class="btn btn-outline" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok">OK</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"><span id="toast-icon"></span><span id="toast-text"></span></div>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>

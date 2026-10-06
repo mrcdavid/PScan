@@ -1,0 +1,30 @@
+# Ruff linter/formatter settings for the whole repo (PC server + phone app + tests).
+#   pc\.venv\Scripts\ruff check .
+#   pc\.venv\Scripts\ruff format --check .
+line-length = 120
+target-version = "py312"
+extend-exclude = ["phone/build", "phone/.briefcase", "phone/dist"]
+
+[lint]
+# pycodestyle, pyflakes, import order, bugbear, pyupgrade, simplify
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    "E501",    # long lines: the formatter handles what it can; long strings/URLs are fine
+    "SIM105",  # contextlib.suppress isn't clearer than try/except/pass here
+]
+
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection defaults (Depends/Header) are evaluated once on purpose.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header"]
+
+[lint.isort]
+# Test helper modules are imported by bare name from the tests folders.
+known-first-party = ["pscan", "pscan_server", "pscan_samples", "pscan_testing"]
+
+[lint.per-file-ignores]
+# Android-only module imports Java classes through Chaquopy at runtime.
+"phone/src/pscan/android_ui.py" = ["F401"]
+# Tests/tools adjust sys.path before importing project code.
+"phone/tests/*" = ["E402"]
+"phone/tools/*" = ["E402"]
+"pc/tests/*" = ["E402"]
