@@ -4,10 +4,13 @@ These tests need the PC server's packages; run them with the PC venv from the pr
     pc\.venv\Scripts\python -m pytest phone\tests
 """
 
+import asyncio
+import contextlib
 import socket
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -42,11 +45,11 @@ def photo_bytes() -> bytes:
     return cv2.imencode(".jpg", img)[1].tobytes()
 
 
-@pytest.fixture(scope="module")
-def server(tmp_path_factory):
-    tmp = tmp_path_factory.mktemp("pscan")
+@contextlib.contextmanager
+def running_server(tmp: Path, name: str):
+    """A PScan PC server (HTTP + discovery) on free localhost ports; yields (app, config)."""
     config = Config(
-        server_name="TEST-PC",
+        server_name=name,
         port=free_port(),
         discovery_port=free_port(socket.SOCK_DGRAM),
         output_dir=tmp / "Scans",
@@ -73,7 +76,42 @@ def server(tmp_path_factory):
     while not http.started and time.time() < deadline:
         time.sleep(0.05)
     assert http.started and discovery.ready.wait(5)
-    yield app, config
-    discovery.stop()
-    http.should_exit = True
-    thread.join(5)
+    try:
+        yield app, config
+    finally:
+        discovery.stop()
+        http.should_exit = True
+        thread.join(5)
+
+
+@pytest.fixture(scope="module")
+def server(tmp_path_factory):
+    with running_server(tmp_path_factory.mktemp("pscan"), "TEST-PC") as handle:
+        yield handle
+
+
+@pytest.fixture(scope="module")
+def second_server(tmp_path_factory):
+    """Another PC, e.g. the office desktop."""
+    with running_server(tmp_path_factory.mktemp("pscan2"), "OFFICE-PC") as handle:
+        yield handle
+
+
+async def wait_until(predicate, timeout=30.0):
+    for _ in range(int(timeout * 20)):
+        if predicate():
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("timed out")
+
+
+def make_controller(tmp_path, **kwargs):
+    """A phone-app Controller whose camera returns sample page photos."""
+    from pscan.controller import Controller
+
+    async def take_photo():
+        path = tmp_path / f"{uuid.uuid4().hex}.jpg"
+        path.write_bytes(photo_bytes())
+        return path
+
+    return Controller(data_dir=tmp_path / "data", take_photo=take_photo, device_name="Test phone", **kwargs)

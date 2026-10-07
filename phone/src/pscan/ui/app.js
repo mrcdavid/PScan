@@ -30,6 +30,7 @@
     alert: '<path d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/>',
     more: '<circle cx="5.5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18.5" cy="12" r="1.3" fill="currentColor"/>',
     logout: '<path d="M15 3.5h3.5a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H15"/><path d="M10 16.5 5.5 12 10 7.5"/><path d="M5.5 12h11"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
     upload: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4.5 16v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16"/>',
   };
   const icon = (name) =>
@@ -159,7 +160,7 @@
     $("#screen-pair").hidden = s.screen !== "pair";
     $("#screen-scan").hidden = s.screen !== "scan";
     $("#bottombar").hidden = s.screen !== "scan";
-    $("#btn-pc").hidden = !s.server;
+    $("#btn-pc").hidden = !s.servers.length;
 
     renderStatus(s);
     if (s.screen === "connect") renderConnect(s);
@@ -181,7 +182,13 @@
     let text = s.connection.text;
     if (s.screen !== "scan") {
       state = s.search.busy ? "connecting" : "idle";
-      text = s.search.busy ? "Searching for PCs…" : s.screen === "pair" ? "Pairing…" : "Not connected to a PC yet";
+      text = s.search.busy
+        ? "Searching for PCs…"
+        : s.screen === "pair"
+          ? "Pairing…"
+          : s.servers.length
+            ? "Choose a PC to add"
+            : "Not connected to a PC yet";
     }
     $("#status-dot").className = "dot " + state;
     $("#status-dot").hidden = state === "connecting";
@@ -193,6 +200,8 @@
 
   // ------------------------------------------------------------ connect screen
   function renderConnect(s) {
+    $("#btn-connect-back").hidden = !s.servers.length;
+    $("#hero-title").textContent = s.servers.length ? "Add another PC" : "Connect to your PC";
     $("#hero-art").classList.toggle("searching", s.search.busy);
     $("#search-spin").hidden = !s.search.busy;
     $("#btn-search").disabled = s.search.busy;
@@ -208,14 +217,19 @@
           .map(
             (f) => `<button class="list-item" data-id="${esc(f.id)}"${s.pair.busy ? " disabled" : ""}>
               <span class="round-icon">${icon("laptop")}</span>
-              <span class="grow"><b>${esc(f.name)}</b><small>${esc(f.host)} · tap to pair</small></span>
+              <span class="grow"><b>${esc(f.name)}</b><small>${esc(f.host)} · ${f.paired ? "paired, tap to use" : "tap to pair"}</small></span>
               <span class="chev">${icon("chevron-right")}</span></button>`
           )
           .join("");
         $$(".list-item", list).forEach((b) =>
           b.addEventListener("click", () => {
-            b.querySelector(".chev").innerHTML = '<span class="spinner"></span>';
-            act("pair_start", { server_id: b.dataset.id });
+            const f = s.search.found.find((x) => x.id === b.dataset.id);
+            const go = () => {
+              b.querySelector(".chev").innerHTML = '<span class="spinner"></span>';
+              act("pair_start", { server_id: b.dataset.id });
+            };
+            if (f && f.paired) confirmSwitch(f.id, f.name, go);
+            else go();
           })
         );
       }
@@ -225,6 +239,7 @@
     msg.textContent = s.search.message;
   }
   $("#btn-search").addEventListener("click", () => act("search"));
+  $("#btn-connect-back").addEventListener("click", () => act("connect_back"));
   $("#manual-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const host = $("#manual-ip").value.trim();
@@ -360,18 +375,37 @@
     showSheet("sheet-save");
   });
   $("#btn-about").addEventListener("click", () => showModal("modal-about"));
-  $("#btn-pc").addEventListener("click", () => showSheet("sheet-pc"));
-  $("#btn-disconnect").addEventListener("click", () =>
+  $("#btn-pc").addEventListener("click", () => {
+    showSheet("sheet-pc");
+    act("search"); // refresh which paired PCs are on this network
+  });
+  $("#btn-add-pc").addEventListener("click", () => {
+    const go = () => {
+      closeSheet();
+      act("add_pc");
+    };
+    const onPc = S.pages.filter((p) => p.status === "ready").length;
+    if (!onPc || !S.server) return go();
     confirmBox(
-      "Disconnect this phone?",
-      `${S.server ? S.server.name : "The PC"} will stop receiving scans from this phone until you pair again with a new code.`,
-      "Disconnect",
-      () => {
-        closeSheet();
-        act("disconnect");
-      }
-    )
-  );
+      "Add another PC?",
+      `After pairing, scans go to the new PC and the ${plural(onPc, "page")} already on ${S.server.name} will be left out of this scan. Save them first if you need them.`,
+      "Continue",
+      go
+    );
+  });
+
+  // Switching PCs leaves out pages that were already sent to the old PC, so ask first.
+  function confirmSwitch(id, name, onGo) {
+    const active = S.servers.find((x) => x.active);
+    const onPc = S.pages.filter((p) => p.status === "ready").length;
+    if (!active || active.id === id || !onPc) return onGo();
+    confirmBox(
+      `Send scans to ${name}?`,
+      `${plural(onPc, "page")} already on ${active.name} will be left out of this scan. Save them first if you need them.`,
+      "Switch PC",
+      onGo
+    );
+  }
 
   // ------------------------------------------------------------------ sheets
   function openPage(key) {
@@ -517,18 +551,57 @@
   });
   $("#btn-save-retry").addEventListener("click", () => act("save", { name: lastSaveName }));
 
-  function renderPc(s) {
-    if (!s.server) return;
-    $("#pc-name").textContent = s.server.name;
-    $("#pc-host").textContent = s.server.host;
-    const st = $("#pc-state");
-    st.className = "pc-state " + s.connection.state;
-    st.textContent = s.connection.state === "online" ? "● Connected" : s.connection.state === "connecting" ? "● Connecting…" : "● " + (s.connection.text || "Offline");
+  function pcStatus(s, pc) {
+    if (pc.active) {
+      const text = { online: "In use · connected", connecting: "In use · connecting…" }[s.connection.state];
+      return [s.connection.state, "● " + (text || "In use · not found")];
+    }
+    return pc.nearby ? ["nearby", "● On this network · tap to use"] : ["away", "Not on this network"];
+  }
+
+  function renderPcs(s) {
+    $("#pcs-spin").hidden = !s.search.busy;
+    const list = $("#pc-list");
+    const rows = s.servers.map((pc) => [pc, pcStatus(s, pc)]);
+    const sig = JSON.stringify(rows);
+    if (list.dataset.sig === sig) return;
+    list.dataset.sig = sig;
+    list.innerHTML = rows
+      .map(
+        ([pc, [cls, text]]) => `<div class="pc-row${pc.active ? " active" : ""}">
+          <button class="pc-main" data-use="${esc(pc.id)}"><span class="round-icon">${icon("laptop")}</span>
+            <span class="grow"><b>${esc(pc.name)}</b><small>${esc(pc.host)}</small><span class="pc-state ${cls}">${text}</span></span></button>
+          <button class="icon-btn plain" data-forget="${esc(pc.id)}" aria-label="Forget ${esc(pc.name)}">${icon("trash")}</button></div>`
+      )
+      .join("");
+    $$("[data-use]", list).forEach((b) =>
+      b.addEventListener("click", () => {
+        const pc = S.servers.find((x) => x.id === b.dataset.use);
+        if (!pc || pc.active) return;
+        confirmSwitch(pc.id, pc.name, () => {
+          closeSheet();
+          act("use_pc", { server_id: pc.id });
+        });
+      })
+    );
+    $$("[data-forget]", list).forEach((b) =>
+      b.addEventListener("click", () => {
+        const pc = S.servers.find((x) => x.id === b.dataset.forget);
+        if (!pc) return;
+        confirmBox(
+          `Forget ${pc.name}?`,
+          `This phone stops sending scans to ${pc.name} until you pair them again with a new code.` +
+            (pc.active && S.pages.some((p) => p.status === "ready") ? " Pages already sent to it are left out of this scan." : ""),
+          "Forget",
+          () => act("forget_pc", { server_id: pc.id })
+        );
+      })
+    );
   }
 
   function renderSheets(s) {
     renderOptions(s);
-    renderPc(s);
+    renderPcs(s);
     if (s.screen === "scan") renderSave(s);
     if (pageKey && openSheet && openSheet.id === "sheet-page") renderPageSheet(s);
     $("#about-version").textContent = s.app.version;

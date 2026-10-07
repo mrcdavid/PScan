@@ -16,8 +16,11 @@ The user-facing setup and troubleshooting guide is `README.md`.
 
 ## Commands
 
-Run everything from the repo root in PowerShell. `pc\.venv` has the server, test and lint packages and is also used to
-run the phone tests. `phone\.venv` only has Briefcase/Toga, for building the app.
+Run everything from the repo root in PowerShell.
+- `pc\.venv` has the server, test and lint packages and is also used to run the phone tests. Create it with
+  `pc\scripts\setup.ps1`.
+- `phone\.venv` only has Briefcase/Toga, for building the app. Create it with `phone\setup.ps1`
+  (`phone\requirements-dev.txt`).
 
 ```powershell
 pc\.venv\Scripts\python -m pytest pc\tests phone\tests          # all tests (~25 s)
@@ -57,6 +60,8 @@ cd phone\icons; ..\..\pc\.venv\Scripts\python make_icons.py               # rege
   `versionName` differs, because Briefcase writes the version only at `create` time.
 - **Signing key:**
   - `release.ps1` signs with `phone\signing\pscan-release.jks` (gitignored).
+  - If the key is missing, the script stops (it only makes a new key with `-NewKey`). On another PC, copy
+    `phone\signing\` over by hand.
   - Don't regenerate it: installed phones must uninstall the app to accept a new key, which also loses their pairing.
 
 ## Architecture
@@ -67,8 +72,8 @@ cd phone\icons; ..\..\pc\.venv\Scripts\python make_icons.py               # rege
   - The phone broadcasts `{"t":"pscan-discover"}`; the PC replies to the sender.
   - The PC also broadcasts a `pscan-here` beacon every 3 s to each adapter's directed broadcast address. This covers
     the phone-hotspot case.
-  - The phone remembers the PC by `server_id` (`pc/data/server_id.txt`), so it can find the PC again after an IP
-    change.
+  - The phone remembers each PC by `server_id` (`pc/data/server_id.txt`), so it can find the PC again after an IP
+    change. Each PC must keep its own `pc/data`: copying it to another PC duplicates the identity.
 - **Pairing:**
   - `POST /api/pair/start` makes a 6-digit code, shown as a Windows toast.
   - `POST /api/pair/finish` returns a bearer token. Only its SHA-256 is stored, in `pc/data/devices.json` (`auth.py`).
@@ -140,6 +145,16 @@ Controller (controller.py): all app logic, on Toga's asyncio loop
     survive the app being killed while the camera is open.
   - `session_lock` prevents two sessions being created at once.
   - `restore_session` reloads an unfinished scan after restart.
+- **Several PCs** (e.g. home laptop and office desktop):
+  - `AppState.servers` holds every paired PC; `active_id` says which one gets scans. `state.server` is the active
+    one. Settings from 0.2.x (a single `server`) are migrated on load.
+  - `try_connect`: if the active PC doesn't answer at its last address, it runs discovery, updates every paired PC's
+    address, and auto-switches (`_switch_to`) to another paired PC on the network. It only does this when no page of
+    the current scan is on the old PC (`_pages_on_pc()`); otherwise it shows "X is here" in the status.
+  - Switching keeps photos still on the phone (`_keep_only_photos`); pages that live only on the old PC and its
+    session are dropped. That's why `app.js` asks for confirmation before a manual switch or adding a PC.
+  - Actions: `use_pc`, `add_pc`, `connect_back`, `forget_pc`.
+  - `Controller(find_pcs=...)` injects discovery so `phone/tests/test_multi_pc.py` can simulate which PCs are nearby.
 - **`camera.py`:**
   - On Android it fires `ACTION_IMAGE_CAPTURE` through the app's FileProvider (`{app_id}.fileprovider`, cache
     `shared/`). It moves the original JPEG into app storage without decoding it, which preserves EXIF and full

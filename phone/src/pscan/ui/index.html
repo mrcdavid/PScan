@@ -35,6 +35,7 @@
 
   <!-- ============================ connect screen ========================== -->
   <main class="screen" id="screen-connect" hidden>
+    <button class="text-btn back-link" id="btn-connect-back" data-icon="chevron-left" hidden>Back to scanning</button>
     <section class="hero card">
       <div class="hero-art" id="hero-art">
         <svg viewBox="0 0 220 120" aria-hidden="true">
@@ -50,7 +51,7 @@
           <path d="M162 60h10l5 5v26h-15z" fill="#f8e9ee"/><circle cx="178" cy="88" r="5" fill="#FFB61C"/>
         </svg>
       </div>
-      <h2>Connect to your PC</h2>
+      <h2 id="hero-title">Connect to your PC</h2>
       <p class="muted">Open <b>PScan</b> on your PC (its icon sits next to the clock) and keep this phone on the same Wi‑Fi.</p>
     </section>
 
@@ -185,13 +186,10 @@
 
   <section class="sheet" id="sheet-pc" role="dialog" aria-modal="true">
     <div class="handle"></div>
-    <div class="sheet-head"><h3>Your PC</h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
-    <div class="pc-card">
-      <div class="round-icon" data-icon="laptop"></div>
-      <div><b id="pc-name"></b><small id="pc-host"></small><span class="pc-state" id="pc-state"></span></div>
-    </div>
-    <p class="hint">Finished PDFs are saved in the Scans folder on this PC.</p>
-    <button class="btn btn-outline btn-block danger-outline" id="btn-disconnect" data-icon="logout">Disconnect this phone</button>
+    <div class="sheet-head"><h3>Your PCs <span class="spinner small" id="pcs-spin" hidden></span></h3><button class="icon-btn plain" data-close data-icon="x" aria-label="Close"></button></div>
+    <p class="hint">Scans go to the PC marked <b>In use</b>, into its Scans folder. If that PC isn't on the current Wi&#8209;Fi, PScan switches to another paired PC it finds.</p>
+    <div class="list pc-list" id="pc-list"></div>
+    <button class="btn btn-outline btn-block" id="btn-add-pc" data-icon="plus">Add another PC</button>
   </section>
 
   <!-- ================================ modals ============================== -->

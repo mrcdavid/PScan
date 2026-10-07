@@ -3,7 +3,7 @@
 #   powershell -ExecutionPolicy Bypass -File C:\Users\Marc\dev\PScan\pc\scripts\setup.ps1
 #
 # 1. Creates pc\.venv and installs the Python packages.
-# 2. Adds Windows Firewall rules (Private networks only) so the phone can reach this PC.
+# 2. Adds Windows Firewall rules (Private and Domain networks; never Public) so the phone can reach this PC.
 #    This part asks for administrator rights. Skip it with -SkipFirewall.
 param([switch]$SkipFirewall)
 
@@ -29,12 +29,12 @@ try {
 $tcp, $udp = $ports.Trim() -split " "
 
 if (-not $SkipFirewall) {
-    Write-Host "Adding firewall rules for TCP $tcp and UDP $udp (Private networks). Approve the admin prompt ..."
+    Write-Host "Adding firewall rules for TCP $tcp and UDP $udp (Private and Domain networks, never Public). Approve the admin prompt ..."
     $rules = @"
 Remove-NetFirewallRule -DisplayName 'PScan (TCP $tcp)' -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName 'PScan discovery (UDP $udp)' -ErrorAction SilentlyContinue
-New-NetFirewallRule -DisplayName 'PScan (TCP $tcp)' -Direction Inbound -Protocol TCP -LocalPort $tcp -Action Allow -Profile Private | Out-Null
-New-NetFirewallRule -DisplayName 'PScan discovery (UDP $udp)' -Direction Inbound -Protocol UDP -LocalPort $udp -Action Allow -Profile Private | Out-Null
+New-NetFirewallRule -DisplayName 'PScan (TCP $tcp)' -Direction Inbound -Protocol TCP -LocalPort $tcp -Action Allow -Profile Private,Domain | Out-Null
+New-NetFirewallRule -DisplayName 'PScan discovery (UDP $udp)' -Direction Inbound -Protocol UDP -LocalPort $udp -Action Allow -Profile Private,Domain | Out-Null
 "@
     Start-Process powershell -Verb RunAs -Wait -ArgumentList "-NoProfile", "-Command", $rules
     Get-NetFirewallRule -DisplayName "PScan*" -ErrorAction SilentlyContinue |

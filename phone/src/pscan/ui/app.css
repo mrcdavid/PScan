@@ -368,13 +368,20 @@ svg.ic { width: 20px; height: 20px; flex: none; }
 .ring { width: 76px; height: 76px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: var(--maroon-soft); }
 .filename { font-weight: 800; font-size: 15px; color: var(--green); word-break: break-all; }
 
-.pc-card { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 18px; background: #faf7f8; border: 1px solid var(--line); }
-.pc-card b { display: block; font-size: 16px; word-break: break-all; }
-.pc-card small { display: block; color: var(--muted); }
-.pc-state { display: inline-flex; margin-top: 4px; font-size: 12.5px; font-weight: 700; }
-.pc-state.online { color: var(--green); }
+.pc-list { margin-top: 14px; }
+.pc-row { display: flex; align-items: center; gap: 4px; padding-right: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 18px; }
+.pc-row.active { border-color: var(--maroon); background: var(--maroon-soft); }
+.pc-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px; border: 0; background: transparent; text-align: left; }
+.pc-main .grow { flex: 1; min-width: 0; }
+.pc-main b { display: block; font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-main small { display: block; color: var(--muted); font-size: 12.5px; }
+.pc-row .icon-btn.plain { flex: none; color: var(--danger); background: #fff5f5; }
+.pc-state { display: inline-flex; margin-top: 3px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.pc-state.online, .pc-state.nearby { color: var(--green); }
 .pc-state.offline { color: var(--danger); }
 .pc-state.connecting { color: #b77900; }
+.back-link { margin: 0 0 10px -6px; }
+#btn-add-pc { margin-top: 14px; }
 
 /* ---------------------------------------------------------------- modals */
 .modal {

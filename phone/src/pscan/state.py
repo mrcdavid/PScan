@@ -1,4 +1,4 @@
-"""What the app remembers between launches (paired PC, current scan, preferences)."""
+"""What the app remembers between launches (paired PCs, current scan, preferences)."""
 
 from __future__ import annotations
 
@@ -39,12 +39,21 @@ class PendingUpload:
 
 @dataclass
 class AppState:
-    server: PairedServer | None = None
-    session_id: str | None = None
+    servers: list[PairedServer] = field(default_factory=list)  # every PC this phone is paired with
+    active_id: str | None = None  # the PC scans currently go to
+    session_id: str | None = None  # the unfinished scan on the active PC
     pending: list[PendingUpload] = field(default_factory=list)
     mode: str = "color"
     paper: str = DEFAULT_PAPER
     ocr: bool = True
+
+    @property
+    def server(self) -> PairedServer | None:
+        """The active PC, if any."""
+        return self.find(self.active_id)
+
+    def find(self, server_id: str | None) -> PairedServer | None:
+        return next((s for s in self.servers if s.server_id == server_id), None)
 
     @classmethod
     def load(cls, path: Path) -> AppState:
@@ -55,9 +64,15 @@ class AppState:
         except (OSError, ValueError):
             log.exception("Settings file unreadable; starting fresh")
             return cls()
-        server = raw.get("server")
+        servers = [PairedServer(**s) for s in raw.get("servers", [])]
+        if not servers and raw.get("server"):  # settings from 0.2.x and earlier: one PC only
+            servers = [PairedServer(**raw["server"])]
+        active_id = raw.get("active_id")
+        if not any(s.server_id == active_id for s in servers):
+            active_id = servers[0].server_id if servers else None
         return cls(
-            server=PairedServer(**server) if server else None,
+            servers=servers,
+            active_id=active_id,
             session_id=raw.get("session_id"),
             pending=[PendingUpload(**p) for p in raw.get("pending", [])],
             mode=raw.get("mode") if raw.get("mode") in MODES else "color",

@@ -62,7 +62,8 @@ about 2–3 GB) in `C:\Users\Marc\dev\.briefcase`.
    ```
    powershell -ExecutionPolicy Bypass -File .\release.ps1
    ```
-   The result is `phone\dist\PScan-<version>.apk`. The first run creates the signing key in `phone\signing\`.
+   The result is `phone\dist\PScan-<version>.apk`, signed with the key in `phone\signing\`. That key was made once
+   with `.\release.ps1 -NewKey`; never make a new one while phones have PScan installed.
    **Back that folder up**: phones only accept updates signed with the same key.
    To release a new version, raise `version` in `phone\pyproject.toml` first; the script re-creates the Android
    project so the version number inside the APK changes too.
@@ -70,7 +71,7 @@ about 2–3 GB) in `C:\Users\Marc\dev\.briefcase`.
    asked. Or, with USB debugging on (Settings → About device → Version → tap **Build number** 7 times; then
    Additional settings → Developer options → **USB debugging** and **Install via USB**):
    ```
-   ..\..\.briefcase\tools\android_sdk\platform-tools\adb install -r dist\PScan-0.2.1.apk
+   ..\..\.briefcase\tools\android_sdk\platform-tools\adb install -r dist\PScan-0.3.0.apk
    ```
 
 ### If Play Protect blocks the install
@@ -101,6 +102,45 @@ The ⓘ button explains what PScan is for and what it's built with.
 
 Pages already taken survive the app being closed, and the PC keeps unfinished scans for 24 hours.
 
+## 4. More than one PC (e.g. a laptop at home and a desktop at the office)
+
+Each PC runs its own PScan server (set it up with section 1) and keeps its own PDFs in its own `Scans` folder.
+
+* **Pair the phone with each PC once.** Tap the **PC** button in the app's header, then **Add another PC**, and
+  pair as usual. The PCs you paired before stay paired.
+* **The app picks the PC itself.** It sends scans to the PC marked **In use**. When that PC isn't on the current
+  Wi‑Fi but another paired PC is, it switches automatically, but only if no pages of the current scan are already
+  on the old PC. Otherwise it says which PC is here, and you can switch in the **PC** sheet.
+* Pages already sent to one PC can't move to another. Save the scan before switching, or they're left out.
+* Tap the trash icon next to a PC to forget it.
+
+## 5. Setting up the code on another PC
+
+Cloning the repo gives you all the code. These are the git-ignored parts, and how each one is made on the new PC:
+
+| Not in the repo | On the new PC |
+|---|---|
+| `pc\.venv` (Python packages) | Made by `pc\scripts\setup.ps1`, which also opens the firewall |
+| `pc\data` (this PC's identity, paired phones, logs) | Created on first start. **Never copy it from another PC**: two PCs with the same identity confuse the phone. |
+| `Scans\` | Created on first start; each PC keeps its own PDFs |
+| `phone\.venv`, Android tools | Only needed to build the app: `phone\setup.ps1`, then `phone\briefcase.ps1 create android` |
+| `phone\signing\` (signing key) | Only needed to build release APKs: copy it from the PC that has it (USB drive, not GitHub). Without it `release.ps1` stops instead of making a new key. |
+| `phone\build`, `phone\dist`, logs, caches | Generated when needed |
+
+Steps on the new PC:
+1. Install **Python 3.12+** (python.org, tick *Add to PATH*), **Git**, and **Tesseract** (`winget install --id UB-Mannheim.TesseractOCR`).
+2. Clone the repo into a folder outside OneDrive, e.g. `C:\Users\<you>\dev\PScan` (see the git steps below).
+3. Run `pc\scripts\setup.ps1`, then `pc\scripts\install_autostart.ps1`. The firewall rules cover Private and Domain
+   (company) networks but never Public ones; check yours with `Get-NetConnectionProfile`.
+4. On the phone: **PC** button → **Add another PC** → pair with the new PC.
+
+Git:
+```
+cd C:\Users\<you>\dev
+git clone https://github.com/mrcdavid/PScan.git
+```
+Afterwards, `git pull` brings in changes pushed from the other PC; commit and `git push` as usual.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -111,6 +151,7 @@ Pages already taken survive the app being closed, and the PC keeps unfinished sc
 | PDFs aren't searchable | Install Tesseract (step 1.2). The notification says why when OCR didn't run. |
 | Page cropped wrongly | Tap **Crop: on** to switch it off for that page; a dark, plain background under the paper helps detection. |
 | Lost the phone / new phone | Tray icon → *Forget paired phones*, then pair again. |
+| Phone doesn't find the office PC | Office desktops are often on wired Ethernet, a different network from the Wi‑Fi, and broadcast discovery doesn't cross between them. Type the desktop's IP (tray menu) in the app instead. If that fails too, the network blocks phone-to-PC traffic. |
 | Anything else | See `pc\data\logs\pscan.log`. When installed with `briefcase run android`, the phone's log streams in that terminal. |
 
 ## Settings (`pc\config.toml`)

@@ -8,9 +8,11 @@
 # development certificate ("CN=Android Debug"), which Play Protect treats as untrusted.
 # This script makes a non-debuggable release build signed with a stable PScan key.
 #
-# The key is created on the first run in phone\signing\ (kept out of git). BACK IT UP:
-# a phone only accepts updates signed with the same key; with a new key you must
-# uninstall PScan first (and pair the phone again).
+# The key lives in phone\signing\ (kept out of git). BACK IT UP and copy it to any other PC
+# you build on: a phone only accepts updates signed with the same key; with a new key you
+# must uninstall PScan first (and pair the phone again). To create a brand-new key on
+# purpose, run with -NewKey.
+param([switch]$NewKey)
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tools = Join-Path (Split-Path -Parent (Split-Path -Parent $here)) ".briefcase\tools"
@@ -45,6 +47,10 @@ if ($built -ne $version) {
 
 # 2. PScan's signing key (made once).
 if (-not (Test-Path $keystore)) {
+    if (-not $NewKey) {
+        throw ("No signing key in $signing. Copy the phone\signing folder from the PC that built the " +
+            "app installed on your phone (a new key forces an uninstall), or run with -NewKey to start over.")
+    }
     Write-Host "Creating PScan's signing key in $signing ..."
     New-Item -ItemType Directory -Force $signing | Out-Null
     $bytes = New-Object byte[] 24

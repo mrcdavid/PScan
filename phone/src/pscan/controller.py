@@ -21,7 +21,7 @@ from .state import MODES, PAPERS, AppState, PairedServer, PendingUpload
 
 log = logging.getLogger("pscan")
 
-APP_VERSION = "0.2.1"  # fallback when the app metadata isn't available (tests, preview)
+APP_VERSION = "0.3.0"  # fallback when the app metadata isn't available (tests, preview)
 BUILD_YEAR = 2026
 
 
@@ -47,10 +47,12 @@ class Controller:
         take_photo: Callable[[], Awaitable[Path | None]],
         device_name: str,
         app_version: str = APP_VERSION,
+        find_pcs: Callable[..., list[FoundServer]] = discover,
     ):
         self.take_photo = take_photo
         self.device_name = device_name
         self.app_version = app_version
+        self.find_pcs = find_pcs  # network discovery (replaceable in tests)
         self.state_path = data_dir / "settings.json"
         self.state = AppState.load(self.state_path)
 
@@ -137,6 +139,7 @@ class Controller:
     def snapshot(self) -> dict:
         server = self.state.server
         uploading = sum(1 for p in self.pages if p.status != "ready")
+        nearby = {f.server_id for f in self.found}
         return {
             "v": self.version,
             "screen": self.screen,
@@ -144,10 +147,28 @@ class Controller:
             "app": {"version": self.app_version, "year": BUILD_YEAR, "device": self.device_name},
             "connection": {"state": self.connection[0], "text": self.connection[1]},
             "server": {"name": server.name, "host": server.host} if server else None,
+            "servers": [
+                {
+                    "id": s.server_id,
+                    "name": s.name,
+                    "host": s.host,
+                    "active": s.server_id == self.state.active_id,
+                    "nearby": s.server_id in nearby,
+                }
+                for s in self.state.servers
+            ],
             "search": {
                 "busy": self.searching,
                 "message": self.search_message,
-                "found": [{"id": f.server_id, "name": f.name, "host": f.host} for f in self.found],
+                "found": [
+                    {
+                        "id": f.server_id,
+                        "name": f.name,
+                        "host": f.host,
+                        "paired": self.state.find(f.server_id) is not None,
+                    }
+                    for f in self.found
+                ],
             },
             "pair": {
                 "server": self.pairing[0].name if self.pairing else "",
@@ -207,7 +228,10 @@ class Controller:
             "set_option": self.set_option,
             "save": self.save_pdf,
             "save_dismiss": self.save_dismiss,
-            "disconnect": self.disconnect,
+            "use_pc": self.use_pc,
+            "add_pc": self.add_pc,
+            "connect_back": self.connect_back,
+            "forget_pc": self.forget_pc,
         }
         handler = handlers.get(name)
         if handler is None:
@@ -227,7 +251,7 @@ class Controller:
         self.searching, self.search_message = True, ""
         self.notify()
         try:
-            self.found = await self.run(discover, 3.0)
+            self.found = await self.run(self.find_pcs, 3.0)
         finally:
             self.searching = False
         if not self.found:
@@ -257,7 +281,11 @@ class Controller:
 
     async def pair_start(self, server_id: str) -> None:
         server = next((f for f in self.found if f.server_id == server_id), None)
-        if server:
+        if server is None:
+            return
+        if self.state.find(server_id):  # already paired: just use it
+            await self.use_pc(server_id)
+        else:
             await self._pair_with(server)
 
     async def pair_resend(self) -> None:
@@ -300,33 +328,80 @@ class Controller:
             self.pair_busy = False
             self.notify()
         self.pairing = None
-        self.state.server = PairedServer(result["server_id"], result["name"], server.host, server.port, result["token"])
+        paired = PairedServer(result["server_id"], result["name"], server.host, server.port, result["token"])
+        # Re-pairing the same PC replaces its old entry; other PCs stay paired.
+        self.state.servers = [s for s in self.state.servers if s.server_id != paired.server_id] + [paired]
+        await self._switch_to(paired.server_id, force=True)
+
+    # =========================================================== several PCs
+
+    def _pages_on_pc(self) -> int:
+        """Pages of the current scan that exist only on the active PC (not as photos on the phone)."""
+        return sum(1 for p in self.pages if p.server_id and not p.file)
+
+    def _keep_only_photos(self) -> None:
+        """Drop pages that are only on the old PC; photos still on the phone go to the next PC."""
+        self.pages = [p for p in self.pages if p.file]
+        for page in self.pages:
+            page.server_id, page.replace, page.status, page.thumb, page.error = None, None, "waiting", None, None
         self.state.session_id = None
-        self.restored = True  # a fresh pairing has no scan to restore
-        self.save_state()
+        self.restored = True
+
+    async def _switch_to(self, server_id: str, force: bool = False) -> None:
+        """Make ``server_id`` the PC that scans go to, and connect to it."""
+        server = self.state.find(server_id)
+        if server is None:
+            return
+        if force or server_id != self.state.active_id:
+            self._keep_only_photos()
+        self.state.active_id = server_id
+        self.client, self.connected = None, False
+        self.connection = ("connecting", f"Connecting to {server.name}…")
         self.screen = "scan"
+        self.save_state()
         self.notify()
         await self.try_connect()
 
-    async def disconnect(self) -> None:
-        await self.forget_pc("")
+    async def use_pc(self, server_id: str) -> None:
+        """Send scans to another paired PC (chosen on the phone)."""
+        if any(p.status == "uploading" for p in self.pages) or self.saving.get("state") == "saving":
+            self.show_toast("Wait until the current upload or save finishes.")
+            return
+        await self._switch_to(server_id)
 
-    async def forget_pc(self, message: str) -> None:
-        self.state.server = None
-        self.state.session_id = None
-        self.client = None
-        self.connected = False
-        self.connection = ("offline", "")
-        for page in self.pages:
-            if page.file:
-                page.file.unlink(missing_ok=True)
-        self.pages = []
-        self.save_state()
+    async def add_pc(self) -> None:
+        """Show the connect screen to pair one more PC (the paired ones stay paired)."""
         self.screen = "connect"
         self.notify()
+        await self.search_pcs()
+
+    async def connect_back(self) -> None:
+        self.pairing, self.pair_error = None, ""
+        self.screen = "scan" if self.state.server else "connect"
+        self.notify()
+
+    async def forget_pc(self, server_id: str | None = None, message: str = "") -> None:
+        """Unpair a PC (default: the active one). Scans then go to another paired PC, if any."""
+        server_id = server_id or self.state.active_id
+        if self.state.find(server_id) is None:
+            return
+        self.state.servers = [s for s in self.state.servers if s.server_id != server_id]
+        if server_id == self.state.active_id:
+            self.state.active_id = None
+            self.client, self.connected = None, False
+            self.connection = ("offline", "")
+            self._keep_only_photos()
+        self.save_state()
         if message:
             self.show_toast(message, "error")
-        await self.search_pcs()
+        if self.state.server is None and self.state.servers:
+            await self._switch_to(self.state.servers[0].server_id)
+        elif self.state.server is None:
+            self.screen = "connect"
+            self.notify()
+            await self.search_pcs()
+        else:
+            self.notify()
 
     # ============================================================== connection
 
@@ -360,19 +435,28 @@ class Controller:
             if health.get("server_id") != server.server_id:
                 raise ConnectionFailed("A different PC answered at the old address.")
         except ApiError:
-            # The PC's IP may have changed (new network, hotspot...). Look for it by id.
-            found = await self.run(lambda: discover(3.0, want_id=server.server_id))
-            match = next((f for f in found if f.server_id == server.server_id), None)
-            if match is None:
-                self.set_connection("offline", f"{server.name} not found. Is the PC on?")
-                return False
-            server.host, server.port = match.host, match.port
+            # Not at its last address (another network, hotspot...): look for the paired PCs by id.
+            self.found = await self.run(lambda: self.find_pcs(3.0, want_id=server.server_id))
+            by_id = {f.server_id: f for f in self.found}
+            for paired in self.state.servers:  # remember everyone's latest address
+                if paired.server_id in by_id:
+                    paired.host, paired.port = by_id[paired.server_id].host, by_id[paired.server_id].port
             self.save_state()
+            if server.server_id not in by_id:
+                other = next((s for s in self.state.servers if s.server_id in by_id), None)
+                if other and not self._pages_on_pc() and self.saving.get("state") != "saving":
+                    # E.g. at the office instead of home. Nothing would be lost, so switch.
+                    self.show_toast(f"{server.name} isn't on this network, so scans now go to {other.name}.")
+                    await self._switch_to(other.server_id)
+                    return self.connected
+                hint = f" {other.name} is here: tap the PC button to switch." if other else " Is the PC on?"
+                self.set_connection("offline", f"{server.name} not found.{hint}")
+                return False
             client = PScanClient(server.host, server.port, server.token)
         try:
             await self.run(client.me)
         except Unauthorized:
-            await self.forget_pc(f"{server.name} no longer knows this phone. Pair it again.")
+            await self.forget_pc(server.server_id, f"{server.name} no longer knows this phone. Pair it again.")
             return False
         except ApiError as exc:
             self.set_connection("offline", str(exc))
@@ -434,7 +518,7 @@ class Controller:
             try:
                 info = await self._upload(page)
             except Unauthorized:
-                await self.forget_pc("This PC no longer knows this phone. Pair it again.")
+                await self.forget_pc(message="This PC no longer knows this phone. Pair it again.")
                 continue
             except Exception as exc:  # ApiError, or e.g. the photo file vanished
                 log.warning("Upload failed: %s", exc)

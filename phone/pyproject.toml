@@ -3,7 +3,7 @@
 [tool.briefcase]
 project_name = "PScan"
 bundle = "com.marcdavid"
-version = "0.2.1"
+version = "0.3.0"
 url = "https://github.com/mrcdavid/PScan"
 license = "MIT"
 license-files = ["LICENSE"]

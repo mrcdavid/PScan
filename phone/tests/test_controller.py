@@ -4,30 +4,11 @@ import asyncio
 import http.client
 import json
 import urllib.request
-import uuid
 
 from pypdf import PdfReader
 
 from pscan.bridge import Bridge
-from pscan.controller import Controller
-from pscan_testing import photo_bytes
-
-
-async def wait_until(predicate, timeout=30.0):
-    for _ in range(int(timeout * 20)):
-        if predicate():
-            return
-        await asyncio.sleep(0.05)
-    raise AssertionError("timed out")
-
-
-def make_controller(tmp_path):
-    async def take_photo():
-        path = tmp_path / f"{uuid.uuid4().hex}.jpg"
-        path.write_bytes(photo_bytes())
-        return path
-
-    return Controller(data_dir=tmp_path / "data", take_photo=take_photo, device_name="Test phone")
+from pscan_testing import make_controller, wait_until
 
 
 def test_full_scan_flow(server, tmp_path):

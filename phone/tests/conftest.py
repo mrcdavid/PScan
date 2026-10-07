@@ -1,1 +1,1 @@
-from pscan_testing import server  # noqa: F401  (registers the fixture)
+from pscan_testing import second_server, server  # noqa: F401  (registers the fixtures)
