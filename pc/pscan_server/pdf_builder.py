@@ -21,7 +21,10 @@ from .sessions import RenderedPage
 log = logging.getLogger(__name__)
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-_INVALID_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+# Besides the characters Windows forbids in file names, also drop shell/PowerShell
+# metacharacters ($ ` % ! & ; ^) so the name is safe to show in a notification and to
+# pass around: the file name comes from the phone, not a trusted source.
+_INVALID_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f$`%!&;^]')
 _RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 MAX_NAME = 120
 

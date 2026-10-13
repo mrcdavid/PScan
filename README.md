@@ -2,7 +2,10 @@
 
 Take photos of document pages with the **PScan app on your Android phone**. Your **PC** straightens and cleans
 each page, makes the text searchable, combines the pages into one **A4** PDF (or Letter, Long bond, Legal) and saves it
-in `C:\Users\Marc\dev\PScan\Scans`. Both devices just need to be on the same Wi-Fi. Built for Marc.
+to a folder on the PC. Both devices just need to be on the same Wi-Fi.
+
+**Just want to use it?** See [INSTALL.md](INSTALL.md): run the Windows installer (`PScan-Setup-<version>.exe`),
+install the phone APK, and pair. No Python or coding. The rest of this file is for building and developing PScan.
 
 ```
  Phone (PScan app, Python/Toga)              PC (pscan_server, Python, starts with Windows)
@@ -176,3 +179,18 @@ cd C:\Users\Marc\dev\PScan\phone\tools
 ..\..\pc\.venv\Scripts\python preview_ui.py
 ```
 Open the printed URL in a browser's phone/responsive view.
+
+## Building the Windows installer
+
+Makes `PScan-Setup-<version>.exe` so other people can install the PC side without Python. It freezes `PScan.exe`
+with PyInstaller, bundles a trimmed Tesseract, smoke-tests the built exe, then wraps it with Inno Setup.
+
+One-time: `winget install --id JRSoftware.InnoSetup`. Then:
+```
+powershell -ExecutionPolicy Bypass -File pc\build_windows.ps1
+```
+The installed app is self-contained: it keeps its settings, pairings and logs in `%LOCALAPPDATA%\PScan` and saves PDFs
+to `%USERPROFILE%\PScan Scans` (changeable from the tray). It does not touch this dev folder. The exe isn't
+code-signed, so Windows SmartScreen warns on first run ("More info → Run anyway").
+
+Publish `PScan-Setup-<version>.exe` and `phone\dist\PScan-<version>.apk` together as a GitHub Release.

@@ -21,7 +21,7 @@ from .state import MODES, PAPERS, AppState, PairedServer, PendingUpload
 
 log = logging.getLogger("pscan")
 
-APP_VERSION = "0.3.0"  # fallback when the app metadata isn't available (tests, preview)
+APP_VERSION = "0.4.0"  # fallback when the app metadata isn't available (tests, preview)
 BUILD_YEAR = 2026
 
 

@@ -14,10 +14,11 @@ import socket
 import sys
 import threading
 import time
+from pathlib import Path
 
 import uvicorn
 
-from . import __version__
+from . import __version__, autostart
 from .config import load_config
 from .discovery import DiscoveryService
 from .notify import Notifier
@@ -72,7 +73,15 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config()
     config.ensure_dirs()
     _setup_logging(config.logs_dir, console)
+    autostart.ensure_default()  # installed app: start with Windows the first time
     notifier = Notifier()
+
+    # Point the bundled Tesseract at its own language data (installed app).
+    tesseract = config.find_tesseract()
+    if tesseract and not os.environ.get("TESSDATA_PREFIX"):
+        tessdata = Path(tesseract).parent / "tessdata"
+        if tessdata.is_dir():
+            os.environ["TESSDATA_PREFIX"] = str(tessdata)
 
     if _port_in_use(config.port, args.host):
         log.error("Port %d is already in use; is PScan already running?", config.port)
@@ -92,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         time.sleep(0.1)
     if not server.started:
         log.error("The HTTP server failed to start")
-        notifier.message("PScan could not start", "See pc\\data\\logs\\pscan.log for details.")
+        notifier.message("PScan could not start", f"See the log: {config.logs_dir / 'pscan.log'}")
         return 1
 
     discovery = DiscoveryService(

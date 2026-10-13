@@ -64,3 +64,8 @@ local.properties
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# PyInstaller / installer build output
+pc/build/
+pc/dist/
+pc/packaging/version_info.txt

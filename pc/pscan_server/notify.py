@@ -3,26 +3,41 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 APP_ID = "PScan"
 
+# winotify renders the toast by substituting the title/message/launch into a PowerShell
+# double-quoted here-string, which expands `$(...)` and backtick escapes. Some of this
+# text comes from the network (the device name in an unauthenticated pair request, and
+# the PDF file name from a paired phone), so neutralise those metacharacters and strip
+# control characters before any text reaches winotify. Normal text is unchanged.
+_PS_UNSAFE = re.compile(r"[$`\x00-\x1f\x7f]")
+
+
+def _toast_safe(text: str) -> str:
+    return _PS_UNSAFE.sub(" ", str(text))
+
 
 class Notifier:
     """Shows Windows toasts. Failures are logged and never break a scan."""
 
     def _show(self, title: str, message: str, launch: str = "", long: bool = False) -> None:
+        if os.environ.get("PSCAN_QUIET") == "1":  # packaging smoke test: no real toasts
+            return
         try:
             from winotify import Notification, audio
 
             toast = Notification(
                 app_id=APP_ID,
-                title=title,
-                msg=message,
+                title=_toast_safe(title),
+                msg=_toast_safe(message),
                 duration="long" if long else "short",
-                launch=launch,
+                launch=_toast_safe(launch),
             )
             toast.set_audio(audio.Default, loop=False)
             toast.show()

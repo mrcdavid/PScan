@@ -42,6 +42,8 @@ cd phone\tools; ..\..\pc\.venv\Scripts\python preview_ui.py               # phon
 cd phone; powershell -ExecutionPolicy Bypass -File .\release.ps1          # signed release APK -> phone\dist\PScan-<version>.apk
 cd phone; powershell -ExecutionPolicy Bypass -File .\briefcase.ps1 run android -u   # debug build over USB
 cd phone\icons; ..\..\pc\.venv\Scripts\python make_icons.py               # regenerate app icons
+powershell -File pc\build_windows.ps1                                     # build the Windows installer (pc\dist\PScan-Setup-<v>.exe)
+powershell -File pc\build_windows.ps1 -SkipInstaller                      # freeze + smoke test only (no Inno Setup needed)
 ```
 
 - **Server notes:**
@@ -56,8 +58,21 @@ cd phone\icons; ..\..\pc\.venv\Scripts\python make_icons.py               # rege
 - **Always go through `briefcase.ps1`, never `briefcase` directly.** It sets `BRIEFCASE_HOME` to
   `C:\Users\Marc\dev\.briefcase` (two levels above `phone\`), where the JDK, Android SDK and `adb.exe`
   (`tools\android_sdk\platform-tools\`) live.
-- **Versioning:** bump `version` in `phone\pyproject.toml`. `release.ps1` re-creates the Android project when its
-  `versionName` differs, because Briefcase writes the version only at `create` time.
+- **Versioning:** one product version across phone and PC, enforced by `pc/tests/test_versions.py`. Bump all three
+  together: `pscan_server.__version__`, `phone/pyproject.toml` `version`, and `APP_VERSION` in `controller.py`.
+  `release.ps1` re-creates the Android project when its `versionName` differs (Briefcase writes it only at `create`).
+- **Windows installer** (`pc/build_windows.ps1`, `pc/packaging/`):
+  - PyInstaller one-folder `PScan.exe` (spec `pscan.spec`, entry `pscan_main.py`), trimmed Tesseract copied into
+    `dist\PScan\tesseract`, `smoke_test.py` drives the built exe over HTTP, then Inno Setup (`pscan.iss`) wraps it.
+  - **Installed vs source mode** (`config.py`): the frozen exe (or any run with `PSCAN_HOME` set) uses per-user
+    folders — `%LOCALAPPDATA%\PScan` for config+data, `%USERPROFILE%\PScan Scans` for output, bundled Tesseract
+    first. From source, repo folders are used exactly as before. Tests set `PSCAN_HOME` to exercise installed mode.
+  - The dev folder is never touched by the installer; don't add install steps that write into the repo.
+  - Inno Setup is needed only for the final installer (`winget install --id JRSoftware.InnoSetup`); `-SkipInstaller`
+    runs everything up to and including the smoke test without it.
+- **Notification safety:** `winotify` runs the toast text through PowerShell, so `notify._toast_safe()` strips
+  `$`/backtick/control chars from anything shown (the device name is unauthenticated; the file name is from a phone).
+  `safe_stem` in `pdf_builder.py` also drops shell metacharacters. Keep new notification text going through `_show`.
 - **Signing key:**
   - `release.ps1` signs with `phone\signing\pscan-release.jks` (gitignored).
   - If the key is missing, the script stops (it only makes a new key with `-NewKey`). On another PC, copy
